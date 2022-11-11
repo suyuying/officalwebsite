@@ -10,7 +10,7 @@ from flask import current_app, g
 def get_db():
     if 'db' not in g:
         g.db = sqlite3.connect(
-            current_app.config['DATABASE'],  # db資訊重app context拿就好
+            current_app.config['DATABASE'],  # db資訊重app context拿就好，使用currentapp需再有app context情況下
             detect_types=sqlite3.PARSE_DECLTYPES  # Pass this flag value to the detect_types parameter of connect()
         )
         g.db.row_factory = sqlite3.Row  # squlite3的class attribute 定義Row 讓row return回來得表會以dict格式呈現
@@ -23,28 +23,35 @@ def close_db(e=None):
     if db is not None:
         db.close()
 
-#準備用schema.sql做db，每次執行都會把db清掉重建
+
+# 準備用schema.sql做db，每次執行都會把db清掉重建
 def init_db():
-    #建立連線 -> 執行schema.sql
-    db=get_db()
-    #使用current_app proxy現在使用的appcontext
+    '''
+    conect to db and use data.sql to create table
+    :return:None
+    '''
+    db = get_db()
+    # 使用current_app proxy現在使用的appcontext
     with current_app.open_resource('schema.sql') as f:
         db.executescript(f.read().decode('utf8'))
 
+
 @click.command('init-db')
 def init_db_command():
-    click.echo("Are you sure u want to init_db")
-    action=input("input yes/no  ")
-    if action == "yes" or action == "YES":
-        init_db()
-        # 跳出提示
-        click.echo("initialize the database ")
-    else:
-        sys.exit("Don't want to initialize database")
+    # 這個寫法在單元測試會有問題，要照tutorial的
+    # click.echo("Are you sure u want to init_db")
+    # action=input("input yes/no  ")
+    # if action == "yes" or action == "YES":
+    #     init_db()
+    #     # 跳出提示
+    #     click.echo("Initialize the database ")
+    # else:
+    #     sys.exit("Don't want to initialize database")
+    init_db()
+    click.echo('Initialized the database.')
 
-#click 跟 close_db兩個執行的時間都在沒有app context情況下，要直接跟app註冊
+
+# click 跟 close_db兩個執行的時間都在沒有app context情況下，要直接跟app註冊
 def register_func_app(app):
-    app.teardown_appcontext(close_db) #response回覆後，要關掉appcontext同時也要關掉db連線
-    app.cli.add_command(init_db_command) #註冊comman
-
-
+    app.teardown_appcontext(close_db)  # appcontext沒了就沒有curent_app 使用curent_app會報錯
+    app.cli.add_command(init_db_command)  # 註冊command要直接向app註冊

@@ -6,7 +6,8 @@ from offical_website.auth import login_required  # 驗證g.user是否有東西
 from offical_website.db import get_db
 
 bp = Blueprint('blog', __name__)
-
+# db用username撈資料做成user(dict)->user['id'] -> session['id']->撈user資料->放入g.user類屬性
+# g.user['id']會被當作值填入post表裏的author_id欄位，後續修改 新增 都會用到g.user['id']去對post裡面author_id
 
 # blog首頁show文章
 @bp.route("/")
@@ -46,6 +47,7 @@ def create():
 
 
 def get_post(id, check_author=True):
+
     post = get_db().execute(
         "SELECT p.id, title, body, created, author_id, username"
         " FROM post p JOIN user u ON p.author_id = u.id"
@@ -54,12 +56,12 @@ def get_post(id, check_author=True):
     ).fetchone()
     if post is None:
         abort(404, f"Post id {id} doesn't exist")
-        # 如果你傳入false就可以看單篇，拿來管控用
+        # 如果你傳入false就可以看單篇，
     if check_author and post['author_id'] != g.user['id']:
         abort(403)
     return post
 
-
+# 使用前面的get_post去取得合法的post(檢驗傳入id
 @bp.route("/<int:id>/update", methods=('GET', 'POST'))
 @login_required
 def update(id):

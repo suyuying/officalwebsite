@@ -7,7 +7,7 @@ from offical_website.db import get_db
 
 bp = Blueprint('auth', __name__, url_prefix='/auth')  # name is passed as the second arg
 
-
+# db用username撈資料做成user->user['id'] -> session['id']->撈user資料->放入g.user類屬性
 @bp.route('/register', methods=['GET', 'POST'])  # GET打進來回註冊頁面，post近來寫db
 def register():
     if request.method == "POST":
@@ -18,7 +18,7 @@ def register():
         # flask缺點再不能預設檢查
         if not username:
             error = "username is required"
-        if not password:
+        elif not password:
             error = "password is required"
         # 如果檢查都沒有錯誤 把資訊放入table
         if error is None:
@@ -38,6 +38,11 @@ def register():
 
 @bp.route("/login", methods=["GET", "POST"])
 def login():
+    '''
+    填表，取資料向db確認有無此使用者，然後密碼hash值是否相同，都正確就先清session，session拿到
+    user_id 為key，然後用user table裡面的user_id作為其值
+    :return:
+    '''
     if request.method == "POST":
         username = request.form['username']
         password = request.form['password']
@@ -59,8 +64,8 @@ def login():
         flash(error)
     return render_template('auth/login.html')
 
-
-@bp.before_app_request #這邊用成berfore_request會導致整個認證功能爆掉 g.user都會是none!!
+# function that runs before the view function, no matter what URL is requested
+@bp.before_app_request #這邊用成before_request會導致整個認證功能爆掉 g.user都會是none!!
 # 任何url都要區分使用者是否是以登入狀態 如果是登入會在request之前確認，並產生g.user的值
 def load_logged_in_user():
     user_id = session.get('user_id')  # session是跨request
@@ -77,8 +82,7 @@ def logout():
     session.clear()  # 清掉跨request的session紀錄
     return redirect(url_for('index'))
 
-
-# 實際上會把每個view包裝起來，並確認使用者是g.user是有資料的，有就可以直接拿到該view 沒有回login，前面的function有先檢查一次g.user
+# 實際上會把每個view包裝起來，並return新view,會在請求過來時確認使用者g.user是有資料的，有就可以直接拿到該view 沒有回login。前面的function有先檢查一次g.user
 # 所以這個高級函示會在包 一次view
 def login_required(view):
     @functools.wraps(view)
